@@ -2,9 +2,8 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import time as time
-import imgaug as ia
-import zoo.cifar10 as cifar10
-from imgaug import augmenters as iaa
+import tools.tools as tl
+import tools.cifar10 as cifar10
 
 
 
@@ -70,18 +69,28 @@ class VggNet:
 
 
 def train_vggnet_on_cifar10():
+    def evalute_on_test(evaluate_batch_size=100):
+        evaluate_test_epochs = int(test.num_examples / evaluate_batch_size)
+        test_acc_counter, test_loss = 0., 0.
+        for epochs in range(evaluate_test_epochs):
+            batch_x, batch_y = test.next_batch(evaluate_batch_size)
+            counter, loss = sess.run([top1, eval_loss],
+                                     feed_dict={network.x: batch_x, network.y: batch_y})
+            test_acc_counter += counter
+            test_loss += loss
+        test_acc = float(test_acc_counter / test.num_examples)
+        test_loss = float(test_loss / test.num_examples)
+        return float(test_acc_counter/test.num_examples)
+
     train, test = cifar10.Cifar10(), cifar10.Cifar10()
     train.load_train_data(data_dim=4, one_hot=True, norm=True)
     test.load_test_data(data_dim=4, one_hot=True, norm=True)
 
-    num_epochs = 500*100
-    step_epochs = int(num_epochs/100)
-    batch_size = 128
-    learn_rate = 0.005
-    average_loss = 0
-    save_path = 'save/vggnet/vggnet'
+    num_epochs = 100
+    batch_size = 64
+    learn_rate = 0.
+    save_path = 'save/vggnet/vggnet_se'
 
-    sess = tf.Session()
     network = VggNet()
     train_loss, _, _, _ = network.forward(is_train=True, reuse=False)
     eval_loss, pred, top1, top3 = network.forward(is_train=False, reuse=True)
@@ -90,38 +99,38 @@ def train_vggnet_on_cifar10():
     with tf.control_dependencies(update_ops):
         solver = tf.train.AdamOptimizer(learn_rate).minimize(train_loss)
 
-    saver = tf.train.Saver(tf.global_variables())
 
+    sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    file = open('{}/vggnet_cifar10_train.txt'.format(save_path), 'w')
+    file = open('{}/vggnet_se_cifar10_train.txt'.format(save_path), 'w')
+    scheduler = tl.lr_scheduler('lr')
 
-    # restore and continue train
+    saver = tf.train.Saver(tf.global_variables())
     # saver.restore(sess, '{}/vgg11_cifar10_model'.format('save/vggnet/vgg_small'))
 
-    # time
-    start = time.time()
-
-    # seq = iaa.Sequential([iaa.CropAndPad()])
 
     # training
     for epochs in range(1, num_epochs + 1):
-        batch_x, batch_y = train.next_batch(batch_size)
-        _, loss = sess.run([solver, train_loss],
-                           feed_dict={network.x:batch_x, network.y:batch_y})
-        average_loss += loss / step_epochs
+        num_iter = int(train.num_examples // batch_size)
+        average_loss, start = 0, time.time()
+        learn_rate = scheduler[epochs] if epochs in scheduler else learn_rate
 
-        if epochs % step_epochs == 0:
-            finish_ratio = int(epochs / step_epochs)
-            elapsed = time.time() - start
-            acc1, acc3 = sess.run([top1, top3], feed_dict={network.x:batch_x, network.y:batch_y})
-            liner = 'epoch {:3d} %, loss {:.6f}, eval top_1 {:.6f}, eval top_3 {:.6f}, time {:.2f}'\
-                .format(finish_ratio, average_loss, float(acc1/batch_size), float(acc3/batch_size), elapsed)
-            print(liner), file.writelines(liner + '\n')
-            file.flush()
-            average_loss, start = 0, time.time()
+        for iter in range(num_iter):
+            batch_x, batch_y = train.next_batch(batch_size)
+            _, loss = sess.run([solver, train_loss],
+                               feed_dict={network.x:batch_x, network.y:batch_y})
+            average_loss += loss / num_iter
+
+        elapsed = time.time() - start
+        acc1, acc3 = sess.run([top1, top3], feed_dict={network.x:batch_x, network.y:batch_y})
+        liner = 'epoch {:3d} %, loss {:.6f}, eval top_1 {:.6f}, eval top_3 {:.6f}, time {:.2f}' \
+            .format(epochs, average_loss, float(acc1/batch_size), float(acc3/batch_size), elapsed)
+        print(liner), file.writelines(liner + '\n')
+        file.flush()
+
 
     # save model
-    saver.save(sess, '{}/vggnet_cifar10_model'.format(save_path))
+    saver.save(sess, '{}/vggnet_se_cifar10_model'.format(save_path))
 
     # evaluate accuracy
     evaluate_batch_size = 100
