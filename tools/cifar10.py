@@ -1,8 +1,7 @@
 
 import numpy as np
 import scipy.io as sio
-import transforms as trans
-import iterator as iter
+import tools.iterator as iter
 
 
 class Cifar10:
@@ -15,7 +14,7 @@ class Cifar10:
             N = images.shape[0]
             images = np.reshape(images, [N, -1])  # shape: [*,?,?,?] --> [*,?]
         if one_hot == False:
-            images, labels = labels = np.argmax(labels)  # [*,?] --> [?]
+            labels = np.argmax(labels)  # [*,?] --> [?]
         if norm == True:
             images = (images - 127.5) / 127.5
             # images = images / 255.
@@ -42,26 +41,6 @@ class Cifar10:
         # package into iterator
         assert self.package == None
         self.package = iter.Iterator(images, labels)
-
-    def augmentation(self, **kwargs):
-        print('augmentation:')
-        for args in kwargs:
-            print('\t{}:\t{}'.format(args, kwargs[args]))
-
-        images, labels = self.images, self.labels
-        if kwargs['flip'] == True:
-            flip = trans.images_horizontal_flip(images)
-            images = np.concatenate([images, flip], axis=0)
-            labels = np.concatenate([labels, labels], axis=0)
-
-        if kwargs['whiten'] == True:
-            N = images.shape[0]
-            for n in range(N):
-                mean = np.mean(images[n,:,:,:], dtype=np.float32)
-                std = np.std(images[n,:,:,:], dtype=np.float32)
-                images[n,:,:,:] = (images[n,:,:,:] - mean) / std
-        self.package.images = images
-        self.package.labels = labels
 
     def next_batch(self, batch_size, shuffle=True):
         return self.package.next_batch(batch_size=batch_size, shuffle=shuffle)
