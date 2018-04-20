@@ -35,12 +35,12 @@ class ResNet:
             else:
                 body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn1')
                 body = tf.nn.relu(body, name='relu1')
-                body = tf.layers.conv2d(body, out_chl, (3, 3), (1, 1), 'same', use_bias=False, name='conv1')
+                body = tf.layers.conv2d(body, out_chl, (3, 3), stride, 'same', use_bias=False, name='conv1')
                 body = tf.layers.dropout(body, rate=0.4, training=is_train, name='drop1')
 
                 body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn2')
                 body = tf.nn.relu(body, name='relu2')
-                body = tf.layers.conv2d(body, out_chl, (3, 3), stride, 'same', use_bias=False, name='conv2')
+                body = tf.layers.conv2d(body, out_chl, (3, 3), (1, 1), 'same', use_bias=False, name='conv2')
                 body = tf.layers.dropout(body, rate=0.4, training=is_train, name='drop2')
 
                 if chl_increase == True:
@@ -67,28 +67,30 @@ class ResNet:
             print('stage {}, blocks {}, depth {}, channel {}'.format(n + 1, num_blocks[n+1], cur_depth, chl_list[n+1]))
         print('depth {}'.format(depth))
 
-    def build_resnet(self, num_blocks, chl_list, bottle_neck, is_train, reuse):
-        # config
+    def forward(self, args, is_train, reuse):
+        bottle_neck = False
+        num_blocks = [8,8,8] #args.num_blocks
+        chl_list = [16,32,64] #args.chl_list
         num_stage = len(num_blocks)
 
         # build graph
         with tf.variable_scope('resnet', reuse=reuse):
             # input batch normalization
-            body = tf.layers.conv2d(self.x, chl_list[0], (3, 3), (1, 1), 'same', use_bias=True, name='conv0')
+            body = tf.layers.conv2d(self.x, 16, (3, 3), (1, 1), 'same', use_bias=True, name='conv0')
 
             for i in range(num_stage):
                 name = 'stage{}_unit{}'.format(i+1, 1)
                 stride = (1 if i == 0 else 2,) * 2 # a tuple, stride like (1,1) or (2,2)
-                body = self.residual_unit(body, chl_list[i+1], False, True, stride, name, is_train)
+                body = self.residual_unit(body, chl_list[i], bottle_neck, True, stride, name, is_train)
                 for j in range(num_blocks[i]-1):
                     name = 'stage{}_unit{}'.format(i+1, j+2)
-                    body = self.residual_unit(body, chl_list[i+1], False, False, (1, 1), name, is_train)
+                    body = self.residual_unit(body, chl_list[i], bottle_neck, False, (1, 1), name, is_train)
 
             body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn1')
             body = tf.nn.relu(body, name='relu1')
 
-            # body = tf.reduce_mean(body, axis=[1, 2], name='gap')
-            body = tf.layers.average_pooling2d(body, (7, 7), (7, 7), name='avg_pool')
+            body = tf.reduce_mean(body, axis=[1, 2], name='gap')
+            # body = tf.layers.average_pooling2d(body, (7, 7), (7, 7), name='avg_pool')
             body = slim.flatten(body, scope='flatten')
             logit = tf.layers.dense(body, 10, name='fc')
             prediction = tf.nn.softmax(logit, name='softmax')

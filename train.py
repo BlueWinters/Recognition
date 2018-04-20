@@ -10,9 +10,12 @@ import tools.helper as helper
 import vggnet.vggnet as vgg_sr
 import vggnet.vggnet_bn as vgg_bn
 import vggnet.vggnet_se as vgg_se
+
 import resnet.resnet as resnet
 import resnet.resnext as resnext
-
+import densenet.densenet as densenet
+import inception.inception_bn as inception_bn
+import dpnet.dpnet as dpnet
 
 def train_on_cifar10(args):
     def evaluation_on_test(evaluate_batch_size=100):
@@ -46,6 +49,14 @@ def train_on_cifar10(args):
             return vgg_se.VggNet()
         elif model_name == 'resnext':
             return resnext.ResNeXt()
+        elif model_name == 'resnet':
+            return resnet.ResNet()
+        elif model_name == 'densenet':
+            return densenet.DenseNet()
+        elif model_name == 'inception_bn':
+            return inception_bn.InceptionBN()
+        elif model_name == 'dpnet':
+            return dpnet.DPNet()
         else:
             raise ValueError('no such model [{}]'.format(model_name))
 
@@ -161,18 +172,31 @@ def train_on_cifar10(args):
 
 
 
+# inception_bn
+# resnext
+# densenet
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="command for training cifar10")
-    parser.add_argument('--model_name', type=str, default='vggnet_se', help='')
+    parser.add_argument('--model_name', type=str, default='dpnet', help='')
     parser.add_argument('--data_set', type=str, default='cifar10', help='')
-    parser.add_argument('--save_path', type=str, default='save/vggnet_se', help='the directory to save model')
+    parser.add_argument('--save_path', type=str, default='tmp/dpnet', help='the directory to save model')
     parser.add_argument('--batch_size', type=int, default=64, help='')
-    parser.add_argument('--num_epochs', type=int, default=50, help='')
+    parser.add_argument('--num_epochs', type=int, default=1, help='')
     parser.add_argument('--lr_scheduler', type=str, default='tools/lr_scheduler', help='learning rate scheduler')
 
+    # parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay')
+
+    # for resnet/resnext
     # parser.add_argument('--num_blocks', type=list, default=[8,8,8], help='for resnet/resnext')
     # parser.add_argument('--chl_list', type=list, default=[16,16,32,64], help='for resnet/resnext')
+
+    # for densenet
+    # parser.add_argument('--num_blocks', type=int, default=1, help='for densenet')
+    # parser.add_argument('--num_layers', type=int, default=16, help='for densenet')
+    # parser.add_argument('--growth_chl', type=int, default=12, help='for densenet')
+
 
     args = parser.parse_args()
     train_on_cifar10(args)

@@ -1,11 +1,6 @@
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-import time as time
-import imgaug as ia
-import zoo.cifar10 as cifar10
-from imgaug import augmenters as iaa
-
 
 
 
@@ -30,7 +25,7 @@ class InceptionV1:
             output = tf.concat([branch1x1, branch3x3, branch5x5, branchpool], axis=3)
             return output
 
-    def forward(self, is_train, reuse):
+    def forward_on_imagenet(self, args, is_train, reuse):
         with tf.variable_scope('inception_v1', reuse=reuse):
             body = tf.layers.conv2d(self.x, 64, (7, 7), (2, 2), padding='same', activation=tf.nn.relu, name='conv0')
             body = tf.layers.max_pooling2d(body, (3, 3), (2, 2), name='maxpool0')
