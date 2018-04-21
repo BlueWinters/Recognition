@@ -67,10 +67,10 @@ class ResNet:
             print('stage {}, blocks {}, depth {}, channel {}'.format(n + 1, num_blocks[n+1], cur_depth, chl_list[n+1]))
         print('depth {}'.format(depth))
 
-    def forward(self, args, is_train, reuse):
+    def forward(self, is_train, reuse, args=None):
         bottle_neck = False
         num_blocks = [8,8,8] #args.num_blocks
-        chl_list = [16,32,64] #args.chl_list
+        chl_list = [32,64,128] #args.chl_list
         num_stage = len(num_blocks)
 
         # build graph

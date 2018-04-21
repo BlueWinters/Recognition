@@ -14,7 +14,6 @@ class DenseNet:
             body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn')
             body = tf.nn.relu(body, name='relu')
             body = tf.layers.conv2d(body, num_filter, (3, 3), (1, 1), 'same', use_bias=False, name='con2d')
-            # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout')
             return body
 
     def denset_block(self, input, in_chl, num_layers, growth_chl, is_train, name):
@@ -31,14 +30,14 @@ class DenseNet:
             body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn')
             body = tf.nn.relu(body, name='relu')
             body = tf.layers.conv2d(body, out_chl, (1, 1), (1, 1), 'same', use_bias=False, name='conv2d')
-            body = tf.layers.dropout(body, rate=0.5, training=is_train, name='dropout')
+            body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout')
             body = tf.layers.average_pooling2d(body, (2, 2), (2, 2), 'valid', name='avg_pool')
             return body
 
-    def forward(self, args, is_train, reuse):
-        num_blocks = 4#args.num_blocks
-        num_layers = 8#args.num_layers
-        growth_chl = 16#args.growth_chl
+    def forward(self, is_train, reuse, args=None):
+        num_blocks = 5#args.num_blocks
+        num_layers = 7#args.num_layers
+        growth_chl = 12#args.growth_chl
 
         with tf.variable_scope('densenet', reuse=reuse):
             body = tf.layers.conv2d(self.x, 16, (3, 3), (1, 1), 'same', name='conv')

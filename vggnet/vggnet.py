@@ -1,11 +1,6 @@
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-import time as time
-import tools.cifar10 as cifar10
-import tools.helper as helper
-
-
 
 
 class VggNet:
