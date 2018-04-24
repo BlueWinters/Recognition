@@ -69,8 +69,8 @@ class ResNet:
 
     def forward(self, is_train, reuse, args=None):
         bottle_neck = False
-        num_blocks = [8,8,8] #args.num_blocks
-        chl_list = [32,64,128] #args.chl_list
+        num_blocks = [8, 8, 8] #args.num_blocks
+        chl_list = [16, 32, 64] #args.chl_list
         num_stage = len(num_blocks)
 
         # build graph
@@ -90,7 +90,6 @@ class ResNet:
             body = tf.nn.relu(body, name='relu1')
 
             body = tf.reduce_mean(body, axis=[1, 2], name='gap')
-            # body = tf.layers.average_pooling2d(body, (7, 7), (7, 7), name='avg_pool')
             body = slim.flatten(body, scope='flatten')
             logit = tf.layers.dense(body, 10, name='fc')
             prediction = tf.nn.softmax(logit, name='softmax')
