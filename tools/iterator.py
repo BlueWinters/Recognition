@@ -52,36 +52,3 @@ class Iterator(object):
 	def is_iter_over(self, batch_size):
 		return (self.index_in_epoch + batch_size) > self.num_examples
 
-class IteratorWithFunc(object):
-	def __init__(self, next_batch_func, max_batch, max_examples):
-		assert next_batch_func is not None
-		self.current_batch = 0 # [0, max_batch-1]
-		self.max_batch = max_batch
-		self.next_batch_func = next_batch_func
-		images, labels = next_batch_func(self.current_batch)
-		self.data_set = Iterator(images, labels)
-		self.max_examples = max_examples
-
-	def next_batch(self, batch_size, reuse=False, shuffle=True):
-		if self.data_set.is_iter_over(batch_size) == True and reuse == False:
-			images, labels = self.next_batch_func(self.current_batch)
-			self.data_set = Iterator(images, labels)
-			self.current_batch = (self.current_batch+1) % self.max_batch
-		return self.data_set.next_batch(batch_size)
-
-	def reset(self):
-		self.current_batch = 0
-		images, labels = self.next_batch_func(self.current_batch)
-		self.data_set = Iterator(images, labels)
-
-	@property
-	def num_examples(self):
-		return self.max_examples
-
-	@property
-	def images(self):
-		return self.data_set.images
-
-	@property
-	def labels(self):
-		return self.data_set.labels
