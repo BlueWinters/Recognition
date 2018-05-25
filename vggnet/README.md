@@ -13,7 +13,7 @@ The vggnet model contains several networks, but all of them is based on the clas
 ## Classification Performance
 The train logs of each model can be found in [save/vggnet_*]() directory.
 The figure on the left represents the training loss of different methods, and the other one represents the accuracy of its test dataset.
-<p align="center"> <img src="train_loss.jpg" width="320", height="236"> <img src="accuracy.jpg" width="320", height="236"> </p>
+<p align="center"> <img src="train_loss.jpeg" width="320", height="236"> <img src="accuracy.jpeg" width="320", height="236"> </p>
 
 
 ## Summary
