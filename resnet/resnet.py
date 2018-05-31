@@ -46,20 +46,20 @@ class ResNet:
                 body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn1')
                 body = tf.nn.relu(body, name='relu1')
                 body = tf.layers.conv2d(body, out_chl, (3, 3), stride, 'same', use_bias=False, name='conv1')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop1')
+                # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop1')
 
                 body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn2')
                 body = tf.nn.relu(body, name='relu2')
                 body = tf.layers.conv2d(body, out_chl, (3, 3), (1, 1), 'same', use_bias=False, name='conv2')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop2')
+                # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop2')
 
                 if chl_increase == True:
                     if stride == (1, 1):
                         shortcut = tf.layers.conv2d(input, out_chl, (1, 1), (1, 1), 'same', use_bias=False, name='short_conv2d')
-                        shortcut = tf.layers.dropout(shortcut, rate=0.2, training=is_train, name='short_dropout')
+                        # shortcut = tf.layers.dropout(shortcut, rate=0.2, training=is_train, name='short_dropout')
                     else:
                         chl = (out_chl - in_chl) // 2
-                        shortcut = tf.layers.max_pooling2d(input, (2, 2), (2, 2), padding='valid', name='max_pool')
+                        shortcut = tf.layers.average_pooling2d(input, (2, 2), (2, 2), padding='valid', name='ave_pool')
                         shortcut = tf.pad(shortcut, [[0, 0], [0, 0], [0, 0], [chl, chl]], name='pad')
                 else:
                     shortcut = input
@@ -81,13 +81,13 @@ class ResNet:
     def forward(self, is_train, reuse, args=None):
         bottle_neck = False
         num_blocks = [8, 8, 8] #args.num_blocks
-        chl_list = [32, 64, 128] #args.chl_list
+        chl_list = [16, 32, 64] #args.chl_list
         num_stage = len(num_blocks)
 
         # build graph
         with tf.variable_scope('resnet', reuse=reuse):
             # input batch normalization
-            body = tf.layers.conv2d(self.x, 32, (3, 3), (1, 1), 'same', use_bias=False, name='conv0')
+            body = tf.layers.conv2d(self.x, 16, (3, 3), (1, 1), 'same', use_bias=False, name='conv0')
 
             for i in range(num_stage):
                 name = 'stage{}_unit{}'.format(i+1, 1)
