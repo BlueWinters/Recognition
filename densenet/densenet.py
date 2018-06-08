@@ -18,18 +18,18 @@ class DenseNet:
                 body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn1')
                 body = tf.nn.relu(body, name='relu1')
                 body = tf.layers.conv2d(body, 4*num_filter, (1, 1), (1, 1), 'same', use_bias=False, name='conv1')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout1')
+                # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout1')
                 # conv2
                 body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn')
                 body = tf.nn.relu(body, name='relu2')
                 body = tf.layers.conv2d(body, num_filter, (3, 3), (1, 1), 'same', use_bias=False, name='conv2')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout2')
+                # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout2')
                 return body
             else:
                 body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn')
                 body = tf.nn.relu(body, name='relu')
                 body = tf.layers.conv2d(body, num_filter, (3, 3), (1, 1), 'same', use_bias=False, name='con2d')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout')
+                # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout')
                 return body
 
     def denset_block(self, input, in_chl, num_layers, growth_chl, bottle_neck, is_train, name):
@@ -52,7 +52,7 @@ class DenseNet:
                 body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn')
                 body = tf.nn.relu(body, name='relu')
                 body = tf.layers.conv2d(body, out_chl, (1, 1), (1, 1), 'same', use_bias=False, name='conv2d')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout')
+                # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='dropout')
                 body = tf.layers.average_pooling2d(body, (2, 2), (2, 2), 'valid', name='avg_pool')
                 return body
 
