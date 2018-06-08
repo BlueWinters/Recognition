@@ -52,3 +52,6 @@ class Iterator(object):
 	def is_iter_over(self, batch_size):
 		return (self.index_in_epoch + batch_size) > self.num_examples
 
+	def reset(self):
+		self.index_in_epoch = 0
+		self.epochs_completed = 0

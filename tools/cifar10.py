@@ -31,6 +31,9 @@ class Cifar10:
     def next_batch(self, batch_size, shuffle=True):
         return self.package.next_batch(batch_size=batch_size, shuffle=shuffle)
 
+    def reset(self):
+        self.package.reset()
+
     @property
     def num_examples(self):
         return self.package.num_examples

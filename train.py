@@ -1,15 +1,20 @@
 
 import tensorflow as tf
 import time as time
+import numpy as np
 import argparse
 import shutil
 import os
+
+from imgaug import augmenters as iaa
+
 import tools.cifar10 as cifar10
 import tools.helper as helper
 
 import vggnet.vggnet as vgg_sr
 import vggnet.vggnet_bn as vgg_bn
 import vggnet.vggnet_se as vgg_se
+import vggnet.vggnet_pool as vgg_mix
 
 import resnet.resnet as resnet
 import resnet.resnext as resnext
@@ -21,10 +26,12 @@ import mobilenet.mobilenet as mobilenet
 def train_on_cifar10(args):
     def evaluation_on_test(evaluate_batch_size=100):
         assert test.num_examples % evaluate_batch_size == 0
+        test.reset()
         evaluate_test_epochs = int(test.num_examples / evaluate_batch_size)
         test_acc_top1, test_acc_top3, test_loss = 0., 0., 0.
         for epochs in range(evaluate_test_epochs):
-            batch_x, batch_y = test.next_batch(evaluate_batch_size)
+            batch_x, batch_y = test.next_batch(evaluate_batch_size, shuffle=False)
+            batch_x = batch_x / 255.
             t1, t3, loss = sess.run([top1, top3, eval_loss],
                                     feed_dict={network.x: batch_x, network.y: batch_y})
             test_acc_top1 += t1
@@ -41,6 +48,13 @@ def train_on_cifar10(args):
             in_top_k = tf.to_float(tf.nn.in_top_k(predictions, target, k=k))
             return tf.reduce_sum(tf.cast(in_top_k, tf.float32))
 
+    def augment_sequential():
+        seq = iaa.Sequential([
+            iaa.CropAndPad(px=((0, 4), (0, 4), (0, 4), (0, 4)), pad_mode='constant', pad_cval=0),
+            iaa.Fliplr(p=0.5),
+        ])
+        return seq
+
     def get_model_symbol(model_name, args):
         if model_name == 'vggnet':
             return vgg_sr.VggNet()
@@ -48,25 +62,21 @@ def train_on_cifar10(args):
             return vgg_bn.VggNet()
         elif model_name == 'vggnet_se':
             return vgg_se.VggNet()
-        elif model_name == 'resnext':
-            return resnext.ResNeXt()
+        elif model_name == 'vggnet_mix':
+            return vgg_mix.VggNet()
         elif model_name == 'resnet':
             return resnet.ResNet()
         elif model_name == 'densenet':
             return densenet.DenseNet()
         elif model_name == 'inception_bn':
             return inception_bn.InceptionBN()
-        elif model_name == 'dpnet':
-            return dpnet.DPNet()
-        elif model_name == 'mobilenet':
-            return mobilenet.MobileNet()
         else:
             raise ValueError('no such model [{}]'.format(model_name))
 
     def get_data_set_symbol(data_set):
-        train, test = cifar10.Cifar10(), cifar10.Cifar10()
-        train.load_train_data(data_dim=4, one_hot=True, norm=True)
-        test.load_test_data(data_dim=4, one_hot=True, norm=True)
+        train, test = cifar10.Cifar10(is_pixel=None), cifar10.Cifar10(is_pixel=None)
+        train.load_train_data()
+        test.load_test_data()
         return train, test
 
     def save_training_config(args):
@@ -101,7 +111,9 @@ def train_on_cifar10(args):
     learn_rate = tf.placeholder(dtype=tf.float32, name='lr')
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
-        solver = tf.train.AdamOptimizer(learn_rate).minimize(train_loss)
+        solver = tf.train.MomentumOptimizer(learn_rate, momentum=0.9, use_nesterov=True).minimize(train_loss)
+        # solver = tf.train.GradientDescentOptimizer(learn_rate).minimize(train_loss)
+        # solver = tf.train.RMSPropOptimizer(learn_rate, ).minimize(train_loss)
 
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
@@ -109,6 +121,7 @@ def train_on_cifar10(args):
     file = open('{}/{}_{}_train.txt'.format(save_path, model_name, data_set), 'w')
     scheduler = helper.lr_scheduler(lr_scheduler)
     saver = tf.train.Saver(tf.global_variables())
+    seq = augment_sequential()
     lr = 0.
 
     # training
@@ -119,8 +132,11 @@ def train_on_cifar10(args):
 
         for iter in range(num_iter):
             batch_x, batch_y = train.next_batch(batch_size)
+            aug_batch_x = seq.augment_images(batch_x) / 255.
+            # batch_x = batch_x / 255.
+
             _, loss = sess.run([solver, train_loss],
-                               feed_dict={network.x:batch_x, network.y:batch_y, learn_rate:lr})
+                               feed_dict={network.x:aug_batch_x, network.y:batch_y, learn_rate:lr})
             average_loss += loss / num_iter
 
         elapsed = time.time() - start
@@ -142,9 +158,11 @@ def train_on_cifar10(args):
     evaluate_test_epochs = int(test.num_examples / evaluate_batch_size)
     train_acc1_counter, train_acc3_counter, train_loss = 0., 0., 0.
     test_acc1_counter, test_acc3_counter, test_loss = 0., 0., 0.
+    train.reset(), test.reset()
 
     for epochs in range(evaluate_train_epochs):
-        batch_x, batch_y = train.next_batch(evaluate_batch_size)
+        batch_x, batch_y = train.next_batch(evaluate_batch_size, shuffle=False)
+        batch_x = batch_x / 255.
         counter1, counter3, loss = sess.run([top1, top3, eval_loss],
                                  feed_dict={network.x:batch_x, network.y:batch_y})
         train_acc1_counter += counter1
@@ -152,7 +170,8 @@ def train_on_cifar10(args):
         train_loss += loss
 
     for epochs in range(evaluate_test_epochs):
-        batch_x, batch_y = test.next_batch(evaluate_batch_size)
+        batch_x, batch_y = test.next_batch(evaluate_batch_size, shuffle=False)
+        batch_x = batch_x / 255.
         counter1, counter3, loss = sess.run([top1, top3, eval_loss],
                                  feed_dict={network.x:batch_x, network.y:batch_y})
         test_acc1_counter += counter1
@@ -175,28 +194,14 @@ def train_on_cifar10(args):
 
 
 
-# inception_bn
-# resnext
-# densenet
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="command for training cifar10")
-    parser.add_argument('--model_name', type=str, default='mobilenet', help='')
+    parser.add_argument('--model_name', type=str, default='resnet', help='')
     parser.add_argument('--data_set', type=str, default='cifar10', help='')
-    parser.add_argument('--save_path', type=str, default='save/mobilenet', help='the directory to save model')
+    parser.add_argument('--save_path', type=str, default='save/resnet/resnet_new_aug', help='the directory to save model')
     parser.add_argument('--batch_size', type=int, default=64, help='')
-    parser.add_argument('--num_epochs', type=int, default=1, help='')
+    parser.add_argument('--num_epochs', type=int, default=100, help='')
     parser.add_argument('--lr_scheduler', type=str, default='tools/lr_scheduler', help='learning rate scheduler')
-
-    # for resnet/resnext
-    # parser.add_argument('--num_blocks', type=list, default=[8,8,8], help='for resnet/resnext')
-    # parser.add_argument('--chl_list', type=list, default=[16,16,32,64], help='for resnet/resnext')
-    # for densenet
-    # parser.add_argument('--num_blocks', type=int, default=1, help='for densenet')
-    # parser.add_argument('--num_layers', type=int, default=16, help='for densenet')
-    # parser.add_argument('--growth_chl', type=int, default=12, help='for densenet')
-
 
     args = parser.parse_args()
     train_on_cifar10(args)
