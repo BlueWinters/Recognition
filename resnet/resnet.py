@@ -6,8 +6,13 @@ import tensorflow.contrib.slim as slim
 
 class ResNet:
     def __init__(self):
-        self.x = tf.placeholder(dtype=tf.float32, shape=(None, 32, 32, 3), name='x')
-        self.y = tf.placeholder(dtype=tf.float32, shape=(None, 10), name='y')
+        self.bottle_neck = False
+        self.block_size = [8, 8, 8]
+        self.num_filters = [16, 32, 64]
+        self.block_stride = (1, 2, 2)
+        self.batch_norm_decay = 0.997
+        self.batch_norm_epsilon = 1e-5
+        self.kernel_initializer = tf.variance_scaling_initializer
 
     def residual_unit(self, input, out_chl, bottle_neck, chl_increase, stride, name, is_train):
         # https://github.com/tornadomeet/ResNet/blob/master/symbol_resnet.py
@@ -15,25 +20,28 @@ class ResNet:
         with tf.variable_scope(name):
             in_chl = input.get_shape().as_list()[-1]
             if bottle_neck == True:
-                body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn1')
+                body = tf.layers.batch_normalization(input, momentum=self.batch_norm_decay,
+                    epsilon=self.batch_norm_epsilon, training=is_train, name='bn1')
                 body = tf.nn.relu(body, name='relu1')
-                body = tf.layers.conv2d(body, out_chl, (1, 1), (1, 1), 'same', use_bias=False, name='conv1')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop1')
+                body = tf.layers.conv2d(body, out_chl, (1, 1), (1, 1), 'same', use_bias=False,
+                    kernel_initializer=self.kernel_initializer, name='conv1')
 
-                body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn2')
+                body = tf.layers.batch_normalization(body, momentum=self.batch_norm_decay,
+                    epsilon=self.batch_norm_epsilon, training=is_train, name='bn2')
                 body = tf.nn.relu(body, name='relu2')
-                body = tf.layers.conv2d(body, out_chl, (3, 3), stride, 'same', use_bias=False, name='conv2')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop2')
+                body = tf.layers.conv2d(body, out_chl, (3, 3), stride, 'same', use_bias=False,
+                    kernel_initializer=self.kernel_initializer, name='conv2')
 
-                body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn3')
+                body = tf.layers.batch_normalization(body, momentum=self.batch_norm_decay,
+                    epsilon=self.batch_norm_epsilon, training=is_train, name='bn3')
                 body = tf.nn.relu(body, name='relu3')
-                body = tf.layers.conv2d(body, out_chl, (1, 1), (1, 1), 'same', use_bias=False, name='conv3')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop3')
+                body = tf.layers.conv2d(body, out_chl, (1, 1), (1, 1), 'same', use_bias=False,
+                    kernel_initializer=self.kernel_initializer, name='conv3')
 
                 if chl_increase == True:
                     if stride == (1, 1):
-                        shortcut = tf.layers.conv2d(input, out_chl, (1, 1), (1, 1), 'same', use_bias=False, name='short_conv2d')
-                        shortcut = tf.layers.dropout(shortcut, rate=0.2, training=is_train, name='short_dropout')
+                        shortcut = tf.layers.conv2d(input, out_chl, (1, 1), (1, 1), 'same', use_bias=False,
+                            kernel_initializer=self.kernel_initializer, name='short_conv2d')
                     else:
                         chl = (out_chl - in_chl) // 2
                         shortcut = tf.layers.max_pooling2d(input, (2, 2), (2, 2), padding='valid', name='max_pool')
@@ -41,24 +49,27 @@ class ResNet:
                 else:
                     shortcut = input
                 return body + shortcut
-                pass
             else:
-                body = tf.layers.batch_normalization(input, momentum=0.9, training=is_train, name='bn1')
+                body = tf.layers.batch_normalization(input, momentum=self.batch_norm_decay,
+                    epsilon=self.batch_norm_epsilon, training=is_train, name='bn1')
                 body = tf.nn.relu(body, name='relu1')
-                body = tf.layers.conv2d(body, out_chl, (3, 3), stride, 'same', use_bias=False, name='conv1')
-                # body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop1')
+                body = tf.layers.conv2d(body, out_chl, (3, 3), stride, 'same', use_bias=False,
+                    kernel_initializer=self.kernel_initializer, name='conv1')
 
-                body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn2')
+                body = tf.layers.batch_normalization(body, momentum=self.batch_norm_decay,
+                    epsilon=self.batch_norm_epsilon, training=is_train, name='bn2')
                 body = tf.nn.relu(body, name='relu2')
-                body = tf.layers.conv2d(body, out_chl, (3, 3), (1, 1), 'same', use_bias=False, name='conv2')
-                body = tf.layers.dropout(body, rate=0.2, training=is_train, name='drop2')
+                body = tf.layers.conv2d(body, out_chl, (3, 3), (1, 1), 'same', use_bias=False,
+                    kernel_initializer=self.kernel_initializer, name='conv2')
 
                 if chl_increase == True:
+                    # the first block use stride (1, 1), then the others use (2, 2)
                     if stride == (1, 1):
-                        shortcut = tf.layers.conv2d(input, out_chl, (1, 1), (1, 1), 'same', use_bias=False, name='short_conv2d')
+                        shortcut = tf.layers.conv2d(input, out_chl, (1, 1), (1, 1), 'same', use_bias=False,
+                            kernel_initializer=self.kernel_initializer, name='short_conv2d')
                     else:
                         chl = (out_chl - in_chl) // 2
-                        shortcut = tf.layers.average_pooling2d(input, (2, 2), (2, 2), padding='valid', name='ave_pool')
+                        shortcut = tf.layers.max_pooling2d(input, (2, 2), (2, 2), padding='valid', name='max_pool')
                         shortcut = tf.pad(shortcut, [[0, 0], [0, 0], [0, 0], [chl, chl]], name='pad')
                 else:
                     shortcut = input
@@ -66,38 +77,28 @@ class ResNet:
                 output = body + shortcut
                 return output
 
-    def print_graph(self, num_blocks, chl_list, bottle_neck):
-        # assert
-        assert len(num_blocks) == len(num_blocks) - 1
-        # print network config
-        depth = 2
-        for n in num_blocks:
-            cur_depth = int(num_blocks[n]) * (6 if bottle_neck is False else 9)
-            depth += cur_depth
-            print('stage {}, blocks {}, depth {}, channel {}'.format(n + 1, num_blocks[n+1], cur_depth, chl_list[n+1]))
-        print('depth {}'.format(depth))
-
-    def forward(self, is_train, reuse, args=None):
-        bottle_neck = False
-        num_blocks = [8, 8, 8] #args.num_blocks
-        chl_list = [16, 32, 64] #args.chl_list
-        num_stage = len(num_blocks)
+    def build_graph(self, is_train, reuse=None, args=None):
+        self.x = tf.placeholder(dtype=tf.float32, shape=(None, 32, 32, 3), name='x')
+        self.y = tf.placeholder(dtype=tf.float32, shape=(None, 10), name='y')
 
         # build graph
-        with tf.variable_scope('resnet', reuse=reuse):
-            # input batch normalization
-            body = tf.layers.conv2d(self.x, 16, (3, 3), (1, 1), 'same', use_bias=False, name='conv0')
+        with tf.variable_scope('resnet_v2', reuse=reuse):
+            # pre-conv2d
+            body = tf.layers.conv2d(self.x, 16, (3, 3), (1, 1), 'same', use_bias=False,
+                kernel_initializer=self.kernel_initializer, name='pre_conv')
 
-            for i in range(num_stage):
-                name = 'stage{}_unit{}'.format(i+1, 1)
-                stride = (1 if i == 0 else 2,) * 2 # a tuple, stride like (1,1) or (2,2)
-                body = self.residual_unit(body, chl_list[i], bottle_neck, True, stride, name, is_train)
-                for j in range(num_blocks[i]-1):
-                    name = 'stage{}_unit{}'.format(i+1, j+2)
-                    body = self.residual_unit(body, chl_list[i], bottle_neck, False, (1, 1), name, is_train)
+            for i, num_block in enumerate(self.block_size):
+                name = 'block{}_unit{}'.format(i, 0)
+                stride = (self.block_stride[i], ) * 2
+                body = self.residual_unit(body, self.num_filters[i], self.bottle_neck, True, stride, name, is_train)
+                for j in range(1, num_block):
+                    name = 'block{}_unit{}'.format(i, j)
+                    body = self.residual_unit(body, self.num_filters[i], self.bottle_neck, False, (1, 1), name, is_train)
 
-            body = tf.layers.batch_normalization(body, momentum=0.9, training=is_train, name='bn1')
-            body = tf.nn.relu(body, name='relu1')
+            # post batch norm & relu
+            body = tf.layers.batch_normalization(body, momentum=self.batch_norm_decay,
+                epsilon=self.batch_norm_epsilon, training=is_train, name='post_bn')
+            body = tf.nn.relu(body, name='post_relu')
 
             body = tf.reduce_mean(body, axis=[1, 2], name='gap')
             body = slim.flatten(body, scope='flatten')
@@ -111,3 +112,9 @@ class ResNet:
             loss = weight_decay * l2_vars + cross_entropy
 
             return loss, prediction
+
+
+
+if __name__ == '__main__':
+    network = ResNet()
+    network.build_graph(True)
